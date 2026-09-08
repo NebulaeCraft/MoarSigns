@@ -9,59 +9,67 @@ import java.util.regex.Pattern;
 
 public class GuiSignTextField extends GuiTextField {
 
+    private static final Pattern SPECIAL = Pattern.compile("(\\{" + (char) 8747 + "[0-9a-z]\\})");
+
     private int maxRowLength = 90;
 
     public GuiSignTextField(int id, FontRenderer p_i1032_1_, int p_i1032_2_, int p_i1032_3_, int p_i1032_4_, int p_i1032_5_) {
         super(id, p_i1032_1_, p_i1032_2_, p_i1032_3_, p_i1032_4_, p_i1032_5_);
     }
 
+    /**
+     * The width the sign will actually draw this line with. The {<8747>x} markers are turned into
+     * the <167>x codes first, so bold text is measured a pixel per character wider, exactly like
+     * the renderer measures it. Measuring the marker form instead let a bold line grow past the
+     * row and lose its last characters again on every save.
+     */
+    private int getRenderedWidth(String s) {
+        return fontRenderer.getStringWidth(GuiMoarSign.getSignTextWithColor(new String[]{s})[0].getUnformattedText());
+    }
+
+    /**
+     * Splits the line into style markers and single characters, so a marker is never cut in half.
+     */
+    private String nextUnit(Matcher m, String s, int pos) {
+        return m.find(pos) && m.start() == pos ? m.group() : s.substring(pos, pos + 1);
+    }
+
     @Override
     public void setText(String text) {
-
-        if (fontRenderer.getStringWidth(text) > this.maxRowLength + getSpecialsWidth(text)) {
-            this.text = fontRenderer.trimStringToWidth(text, this.maxRowLength + getSpecialsWidth(text));
-        } else {
-            this.text = text;
-        }
-
+        // Loading a line never shortens it. A sign written before the row got wider styles, or one
+        // pasted from a smaller row, is kept whole and simply clipped when it is drawn - writeText
+        // is what stops the row from growing any further.
+        this.text = text;
         this.setCursorPositionEnd();
-
     }
 
     @Override
     public void writeText(String text) {
-        String s1 = "";
         String s2 = ChatAllowedCharacters.filterAllowedCharacters(text);
-        int i = cursorPosition < this.selectionEnd ? cursorPosition : this.selectionEnd;
-        int j = cursorPosition < this.selectionEnd ? this.selectionEnd : cursorPosition;
-        int k = this.maxRowLength - fontRenderer.getStringWidth(GuiMoarSign.getSignTextWithColor(new String[]{this.text})[0].getUnformattedText()) - (fontRenderer.getStringWidth(this.text.substring(0, i)) - fontRenderer.getStringWidth(this.text.substring(0, j)));
+        int i = Math.min(this.cursorPosition, this.selectionEnd);
+        int j = Math.max(this.cursorPosition, this.selectionEnd);
 
-        if (this.text.length() > 0) {
-            s1 = s1 + this.text.substring(0, i);
+        String start = this.text.substring(0, i);
+        String end = this.text.substring(j);
+
+        Matcher m = SPECIAL.matcher(s2);
+        StringBuilder written = new StringBuilder();
+
+        for (int pos = 0; pos < s2.length(); ) {
+            String unit = nextUnit(m, s2, pos);
+
+            // Style markers take no room on the sign itself, so they always fit. Everything else
+            // is checked against the whole rebuilt line instead of against the leftover width,
+            // which is what used to let one character too many through on a bold row.
+            if (!SPECIAL.matcher(unit).matches() && getRenderedWidth(start + written + unit + end) > this.maxRowLength)
+                break;
+
+            written.append(unit);
+            pos += unit.length();
         }
 
-        int l;
-
-        if (k < fontRenderer.getStringWidth(s2) && !isSpecial(s2)) {
-            String temp = fontRenderer.trimStringToWidth(s2, k);
-            s1 = s1 + temp;
-            l = temp.length();
-        } else {
-            s1 = s1 + s2;
-            l = s2.length();
-        }
-
-        if (l == 0 && isSpecial(s2)) {
-            s1 = s1 + s2;
-            l = s2.length();
-        }
-
-        if (this.text.length() > 0 && j < this.text.length()) {
-            s1 = s1 + this.text.substring(j);
-        }
-
-        this.text = s1;
-        this.moveCursorBy(i - this.getSelectionEnd() + l);
+        this.text = start + written + end;
+        this.moveCursorBy(i - this.getSelectionEnd() + written.length());
     }
 
     @Override
@@ -107,23 +115,12 @@ public class GuiSignTextField extends GuiTextField {
         }
     }
 
-    @SuppressWarnings("unused")
     public void setMaxRowLength(int maxRowLength) {
         this.maxRowLength = maxRowLength;
     }
 
     private boolean isSpecial(String s) {
-        return s.matches("(\\{" + (char) 8747 + "[0-9a-z]\\})");
-
-    }
-
-    private int getSpecialsWidth(String s) {
-        Matcher m = Pattern.compile("(\\{" + (char) 8747 + "[0-9a-z]\\})").matcher(s);
-        int i = 0;
-
-        while (m.find())
-            i += fontRenderer.getStringWidth(m.group(1));
-        return i;
+        return SPECIAL.matcher(s).matches();
     }
 
     private int getCharIndex(char[][] arr, char c) {

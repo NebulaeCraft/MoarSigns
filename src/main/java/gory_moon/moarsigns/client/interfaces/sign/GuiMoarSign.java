@@ -156,8 +156,7 @@ public class GuiMoarSign extends GuiBase {
             k++;
         }
 
-        if (selectedTextField != -1)
-            guiTextFields[selectedTextField].setFocused(true);
+        setSelectedTextField(selectedTextField);
 
         textStyleRect = new GuiRectangle(guiLeft + 150, guiTop + 30, 60, 116);
         textColorsRect = new GuiRectangle(guiLeft + 150, guiTop + 30, 65, 65);
@@ -214,13 +213,32 @@ public class GuiMoarSign extends GuiBase {
         Keyboard.enableRepeatEvents(false);
         this.entitySign.setEditable(true);
 
-        for (int i = 0; i < entitySign.signText.length; i++) {
-            int maxLength = Utils.getMaxLength(rowSizes[i]);
-            String s = fontRenderer.trimStringToWidth(entitySign.signText[i].getUnformattedText(), Math.min(fontRenderer.getStringWidth(entitySign.signText[i].getUnformattedText()), maxLength - toPixelWidth(getStyleOffset(i))));
-            entitySign.signText[i] = new TextComponentString(s);
-        }
+        // Nothing is trimmed here any more. The text fields already refuse anything wider than
+        // the row can show, and re-measuring the <167> form on the way out cut a character off
+        // every bold line, over and over, because typing was measured without the bold pixels.
+
+        // Drop the focus so the loader's IME hook, which follows the last setFocused() call,
+        // detaches the input method again when the sign closes.
+        setSelectedTextField(-1);
 
         PacketHandler.INSTANCE.sendToServer(new MessageSignInfo(entitySign));
+    }
+
+    /**
+     * Focuses a single row, always ending with the selected one. GuiTextField#setFocused drives a
+     * single global IME state on Cleanroom, so whichever field calls it last decides whether an
+     * input method can be opened at all - blindly looping over all four rows left row 4 in charge.
+     */
+    public void setSelectedTextField(int index) {
+        selectedTextField = index;
+
+        for (int i = 0; i < guiTextFields.length; i++) {
+            if (guiTextFields[i] != null && i != index)
+                guiTextFields[i].setFocused(false);
+        }
+
+        if (index != -1 && guiTextFields[index] != null)
+            guiTextFields[index].setFocused(true);
     }
 
     @Override
@@ -252,17 +270,11 @@ public class GuiMoarSign extends GuiBase {
         update();
 
         if (selectedTextField != -1) {
-            if (key == 200) {
-                guiTextFields[selectedTextField].setFocused(false);
-                selectedTextField = selectedTextField - 1 < 0 ? 3 : selectedTextField - 1;
-                guiTextFields[selectedTextField].setFocused(true);
-            }
+            if (key == 200)
+                setSelectedTextField(selectedTextField - 1 < 0 ? 3 : selectedTextField - 1);
 
-            if (key == 208 || key == 28 || key == 156) {
-                guiTextFields[selectedTextField].setFocused(false);
-                selectedTextField = selectedTextField + 1 > 3 ? 0 : selectedTextField + 1;
-                guiTextFields[selectedTextField].setFocused(true);
-            }
+            if (key == 208 || key == 28 || key == 156)
+                setSelectedTextField(selectedTextField + 1 > 3 ? 0 : selectedTextField + 1);
         }
 
         if (key == 1) {
@@ -448,17 +460,13 @@ public class GuiMoarSign extends GuiBase {
                     guiTextField.mouseClicked(x, y, b);
                 }
 
-                boolean newSet = false;
+                int clicked = -1;
                 for (int i = 0; i < guiTextFields.length; i++) {
-                    if (guiTextFields[i].isFocused()) {
-                        selectedTextField = i;
-                        newSet = true;
-                    }
+                    if (guiTextFields[i].isFocused())
+                        clicked = i;
                 }
 
-                if (!newSet) {
-                    selectedTextField = -1;
-                }
+                setSelectedTextField(clicked);
             }
         }
 
@@ -485,6 +493,9 @@ public class GuiMoarSign extends GuiBase {
         for (int i = 0; i < rowLocations.length; i++) {
             int max = Utils.getMaxTextOffset(rowSizes[i]) - getStyleOffset(i);
             rowLocations[i] = max > rowLocations[i] ? rowLocations[i] : max;
+
+            // Same budget the renderer uses, so a row never accepts text it cannot show.
+            guiTextFields[i].setMaxRowLength(Utils.getMaxLength(rowSizes[i]) - toPixelWidth(getStyleOffset(i)));
         }
 
         if (!s.equals("")) {

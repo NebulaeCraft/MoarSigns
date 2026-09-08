@@ -6,14 +6,11 @@ import gory_moon.moarsigns.tileentites.TileEntityMoarSign;
 import gory_moon.moarsigns.util.Utils;
 import net.minecraft.block.Block;
 import net.minecraft.client.gui.FontRenderer;
-import net.minecraft.client.gui.GuiUtilRenderComponents;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.tileentity.TileEntitySpecialRenderer;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.text.ITextComponent;
 import org.lwjgl.opengl.GL11;
 
-import java.util.List;
 
 public class MoarSignRenderer extends TileEntitySpecialRenderer<TileEntityMoarSign> {
 
@@ -140,9 +137,10 @@ public class MoarSignRenderer extends TileEntitySpecialRenderer<TileEntityMoarSi
                     GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
                     GlStateManager.depthMask(false);
 
-                    ITextComponent ichatcomponent = te.signText[row];
-                    List<ITextComponent> list = GuiUtilRenderComponents.splitText(ichatcomponent, 90, fontRenderer, false, true);
-                    String s = list != null && list.size() > 0 ? ((ITextComponent) list.get(0)).getFormattedText() : "";
+                    // No word wrapping here: the row is clipped to its own width just below, and
+                    // splitText breaks CJK between every character, which cost the line one more
+                    // character than the clip alone would.
+                    String s = te.signText[row].getFormattedText();
 
                     int maxLength = Utils.getMaxLength((int) size) - Utils.toPixelWidth(fontRenderer, Utils.getStyleOffset(s, te.shadowRows[row]));
                     s = fontRenderer.trimStringToWidth(s, Math.min(maxLength, fontRenderer.getStringWidth(s)));

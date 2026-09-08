@@ -64,7 +64,10 @@ minecraft {
 repositories {
 
     maven {
-        url "http://tehnut.info/maven"
+        // tehnut.info/maven is gone (the domain serves an unrelated site now), so Hwyla comes
+        // straight off CurseForge instead.
+        name = "CurseMaven"
+        url = "https://cursemaven.com"
     }
 
     maven {
@@ -99,7 +102,7 @@ dependencies {
     deobfCompile "mezz.jei:jei_${config.mc_version}:${config.jei_version}:api"
     deobfCompile "mezz.jei:jei_${config.mc_version}:${config.jei_version}"
 
-    deobfCompile "mcp.mobius.waila:Hwyla:${config.hwyla_version}"
+    deobfCompile "curse.maven:hwyla-253449:${config.hwyla_file}"
     deobfCompile "mcjty.theoneprobe:TheOneProbe-1.12:1.12-${config.top_version}"
     deobfCompile "tumat:TUMAT:1.12.x:1.12.0"
 

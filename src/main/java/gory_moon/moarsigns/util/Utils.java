@@ -23,6 +23,8 @@ public class Utils {
     private static LinkedHashMap<String, String> modNames = Maps.newLinkedHashMap();
     private static LinkedHashMap<String, ResourceLocation> textures = Maps.newLinkedHashMap();
 
+    private static final Pattern UNDERLINE = Pattern.compile("(\\{" + (char) 8747 + "n\\})|(" + (char) 167 + "n)");
+
     private static int[] maxLengths = {90, 82, 76, 70, 66, 62, 58, 54, 52, 50, 48, 46, 44, 42, 40, 38, 36, 36, 34, 32, 32};
     private static int[] maxTextLocation = {36, 32, 29, 27, 24, 22, 21, 19, 17, 16, 15, 14, 13, 12, 11, 11, 10, 9, 9, 8, 8};
 
@@ -61,7 +63,10 @@ public class Utils {
     }
 
     public static boolean isUnderlined(String s) {
-        return Pattern.compile("(\\{" + (char) 8747 + "n\\})|(" + (char) 167 + ")").matcher(s).find();
+        // The editor keeps the styles as {<8747>n}, the sign itself stores them as <167>n.
+        // Only the underline style widens the line, matching a bare <167> made every
+        // formatted line reserve room it doesn't need and clipped a character off the end.
+        return UNDERLINE.matcher(s).find();
     }
 
     public static String getModName(String modID) {
